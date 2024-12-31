@@ -73,13 +73,41 @@ _nodes_environment_set() {
         return 1
     fi
 
+    cln_set=false
+    lnd_set=false
+
+    LNVENDOR_COORD="$(_get_env_var LNVENDOR)" || return "$?"
+    LNVENDOR_COORD="$(printf "%s\n" "$LNVENDOR_COORD" | tr '[:upper:]' '[:lower:]')"
+    case "$LNVENDOR_COORD" in
+        cln) cln_set=true ;;
+        lnd) lnd_set=true ;;
+        *)
+            echo "error: LNVENDOR can be cln or lnd" >&2
+            return 1
+        ;;
+    esac
+    LNVENDOR_USER="$(_get_env_var LNVENDOR_ROBOT)" || return "$?"
+    LNVENDOR_USER="$(printf "%s\n" "$LNVENDOR_USER" | tr '[:upper:]' '[:lower:]')"
+    case "$LNVENDOR_USER" in
+        cln) cln_set=true ;;
+        lnd) lnd_set=true ;;
+        *)
+            echo "error: LNVENDOR_ROBOT can be cln or lnd" >&2
+            return 1
+        ;;
+    esac
+
     BITCOIND_BIN="$(_get_env_var_path "BITCOIND_BIN")" || return "$?"
     BITCOIN_CLI_BIN="$(_get_env_var_path "BITCOIN_CLI_BIN")" || return "$?"
-    LIGHTNINGD_BIN="$(_get_env_var_path "LIGHTNINGD_BIN")" || return "$?"
-    LIGHTNING_CLI_BIN="$(_get_env_var_path "LIGHTNING_CLI_BIN")" || return "$?"
-    HOLDINVOICE_PLUGIN_BIN="$(_get_env_var_path "HOLDINVOICE_PLUGIN_BIN")" || return "$?"
-    LND_BIN="$(_get_env_var_path "LND_BIN")" || return "$?"
-    LNCLI_BIN="$(_get_env_var_path "LNCLI_BIN")" || return "$?"
+    if [ "$cln_set" = true ]; then
+        LIGHTNINGD_BIN="$(_get_env_var_path "LIGHTNINGD_BIN")" || return "$?"
+        LIGHTNING_CLI_BIN="$(_get_env_var_path "LIGHTNING_CLI_BIN")" || return "$?"
+        HOLDINVOICE_PLUGIN_BIN="$(_get_env_var_path "HOLDINVOICE_PLUGIN_BIN")" || return "$?"
+    fi
+    if [ "$lnd_set" = true ]; then
+        LND_BIN="$(_get_env_var_path "LND_BIN")" || return "$?"
+        LNCLI_BIN="$(_get_env_var_path "LNCLI_BIN")" || return "$?"
+    fi
     REGTEST_NODES_DIR="$(_get_env_var_path "REGTEST_NODES_DIR")" || return "$?"
     REGTEST_LOGS_DIR="$(_get_env_var_path "REGTEST_LOGS_DIR")" || return "$?"
 
@@ -88,13 +116,17 @@ _nodes_environment_set() {
     BITCOIN_REGTEST_RPC_PORT="$(_get_env_var_port "BITCOIND_RPCURL")" || return "$?"
     BITCOIN_REGTEST_RPC_USER="$(_get_env_var "BITCOIND_RPCUSER")" || return "$?"
     BITCOIN_REGTEST_RPC_PASS="$(_get_env_var "BITCOIND_RPCPASSWORD")" || return "$?"
-    CLN_COORD_GRPC_PORT="$(_get_env_var_port "CLN_GRPC_HOST")" || return "$?"
-    CLN_COORD_HOLD_PORT="$(_get_env_var_port "CLN_GRPC_HOLD_HOST")" || return "$?"
-    LND_COORD_RPC_PORT="$(_get_env_var_port "LND_GRPC_HOST")" || return "$?"
-    CLN_COORD_LISTEN_PORT="$(_get_env_var "CLN_TEST_COORD_LISTEN_PORT")" || return "$?"
-    LND_COORD_LISTEN_PORT="$(_get_env_var "LND_TEST_COORD_LISTEN_PORT")" || return "$?"
-    LND_COORD_REST_PORT="$(_get_env_var "LND_TEST_COORD_REST_PORT")" || return "$?"
-    LND_USER_REST_PORT="$(_get_env_var "LND_TEST_ROBOT_REST_PORT")" || return "$?"
+    if [ "$cln_set" = true ]; then
+        CLN_COORD_GRPC_PORT="$(_get_env_var_port "CLN_GRPC_HOST")" || return "$?"
+        CLN_COORD_HOLD_PORT="$(_get_env_var_port "CLN_GRPC_HOLD_HOST")" || return "$?"
+        CLN_COORD_LISTEN_PORT="$(_get_env_var "CLN_TEST_COORD_LISTEN_PORT")" || return "$?"
+    fi
+    if [ "$lnd_set" = true ]; then
+        LND_COORD_RPC_PORT="$(_get_env_var_port "LND_GRPC_HOST")" || return "$?"
+        LND_COORD_LISTEN_PORT="$(_get_env_var "LND_TEST_COORD_LISTEN_PORT")" || return "$?"
+        LND_COORD_REST_PORT="$(_get_env_var "LND_TEST_COORD_REST_PORT")" || return "$?"
+        LND_USER_REST_PORT="$(_get_env_var "LND_TEST_ROBOT_REST_PORT")" || return "$?"
+    fi
 
     bitcoind_test_rpcuser="$(_get_env_var "BITCOIND_TEST_RPCUSER")" || return "$?"
     if [ "$bitcoind_test_rpcuser" != "$BITCOIN_REGTEST_RPC_USER" ]; then
@@ -113,32 +145,12 @@ _nodes_environment_set() {
         return 1
     fi
 
-    LNVENDOR_COORD="$(_get_env_var LNVENDOR)" || return "$?"
-    LNVENDOR_COORD="$(printf "%s\n" "$LNVENDOR_COORD" | tr '[:upper:]' '[:lower:]')"
-    case "$LNVENDOR_COORD" in
-        cln|lnd) ;;
-        *)
-            echo "error: LNVENDOR can be cln or lnd" >&2
-            return 1
-        ;;
-    esac
-    LNVENDOR_USER="$(_get_env_var LNVENDOR_ROBOT)" || return "$?"
-    LNVENDOR_USER="$(printf "%s\n" "$LNVENDOR_USER" | tr '[:upper:]' '[:lower:]')"
-    case "$LNVENDOR_USER" in
-        cln|lnd) ;;
-        *)
-            echo "error: LNVENDOR_ROBOT can be cln or lnd" >&2
-            return 1
-        ;;
-    esac
-
     if [ -z "$BITCOIND_BIN" ]; then
         BITCOIND_BIN="bitcoind"
     fi
     if ! _command_exist "$BITCOIND_BIN"; then
         return 1
     fi
-
     if [ -z "$BITCOIN_CLI_BIN" ]; then
         BITCOIN_CLI_BIN="bitcoin-cli"
     fi
@@ -146,41 +158,42 @@ _nodes_environment_set() {
         return 1
     fi
 
-    if [ -z "$LIGHTNINGD_BIN" ]; then
-        LIGHTNINGD_BIN="lightningd"
-    fi
-    if ! _command_exist "$LIGHTNINGD_BIN"; then
-        return 1
-    fi
-
-    if [ -z "$LIGHTNING_CLI_BIN" ]; then
-        LIGHTNING_CLI_BIN="lightning-cli"
-    fi
-    if ! _command_exist "$LIGHTNING_CLI_BIN"; then
-        return 1
-    fi
-
-    if [ -z "$HOLDINVOICE_PLUGIN_BIN" ]; then
-        echo "error: $HOLDINVOICE_PLUGIN_BIN not set" >&2
-        return 1
-    fi
-    if [ ! -f "$HOLDINVOICE_PLUGIN_BIN" ]; then
-        echo "error: $HOLDINVOICE_PLUGIN_BIN plugin not found" >&2
-        return 1
-    fi
-
-    if [ -z "$LND_BIN" ]; then
-        LND_BIN="lnd"
-    fi
-    if ! _command_exist "$LND_BIN"; then
-        return 1
+    if [ "$cln_set" = true ]; then
+        if [ -z "$LIGHTNINGD_BIN" ]; then
+            LIGHTNINGD_BIN="lightningd"
+        fi
+        if ! _command_exist "$LIGHTNINGD_BIN"; then
+            return 1
+        fi
+        if [ -z "$LIGHTNING_CLI_BIN" ]; then
+            LIGHTNING_CLI_BIN="lightning-cli"
+        fi
+        if ! _command_exist "$LIGHTNING_CLI_BIN"; then
+            return 1
+        fi
+        if [ -z "$HOLDINVOICE_PLUGIN_BIN" ]; then
+            echo "error: $HOLDINVOICE_PLUGIN_BIN not set" >&2
+            return 1
+        fi
+        if [ ! -f "$HOLDINVOICE_PLUGIN_BIN" ]; then
+            echo "error: $HOLDINVOICE_PLUGIN_BIN plugin not found" >&2
+            return 1
+        fi
     fi
 
-    if [ -z "$LNCLI_BIN" ]; then
-        LNCLI_BIN="lncli"
-    fi
-    if ! _command_exist "$LNCLI_BIN"; then
-        return 1
+    if [ "$lnd_set" = true ]; then
+        if [ -z "$LND_BIN" ]; then
+            LND_BIN="lnd"
+        fi
+        if ! _command_exist "$LND_BIN"; then
+            return 1
+        fi
+        if [ -z "$LNCLI_BIN" ]; then
+            LNCLI_BIN="lncli"
+        fi
+        if ! _command_exist "$LNCLI_BIN"; then
+            return 1
+        fi
     fi
 
     if [ -z "$REGTEST_NODES_DIR" ]; then
@@ -196,42 +209,49 @@ _nodes_environment_set() {
     _create_dir "$REGTEST_LOGS_DIR" || return "$?"
 
     BITCOIN_DIR="$REGTEST_NODES_DIR/bitcoin"
-    CLN_COORD_DIR="$REGTEST_NODES_DIR/cln-coord"
-    CLN_USER_DIR="$REGTEST_NODES_DIR/cln-user"
-    LND_COORD_DIR="$REGTEST_NODES_DIR/lnd-coord"
-    LND_USER_DIR="$REGTEST_NODES_DIR/lnd-user"
     ROBOAUTO_DIR="$REGTEST_NODES_DIR/roboauto"
 
-    cln_coor_dir_env="$(_get_env_var_path "CLN_DIR")" || return "$?"
-    if [ "$cln_coor_dir_env" != "$CLN_COORD_DIR/regtest" ]; then
-        echo "error: CLN_DIR not consistent with REGTEST_NODES_DIR" >&2
-        return 1
-    fi
-    lnd_coord_dir_env="$(_get_env_var_path "LND_DIR")" || return "$?"
-    if [ "$lnd_coord_dir_env" != "$LND_COORD_DIR" ]; then
-        echo "error: LND_DIR not consistent with REGTEST_NODES_DIR" >&2
-        return 1
+    if [ "$cln_set" = true ]; then
+        CLN_COORD_DIR="$REGTEST_NODES_DIR/cln-coord"
+        CLN_USER_DIR="$REGTEST_NODES_DIR/cln-user"
+
+        cln_coor_dir_env="$(_get_env_var_path "CLN_DIR")" || return "$?"
+        if [ "$cln_coor_dir_env" != "$CLN_COORD_DIR/regtest" ]; then
+            echo "error: CLN_DIR not consistent with REGTEST_NODES_DIR" >&2
+            return 1
+        fi
     fi
 
-    lnd_test_coord_macaroon_path="$(
-        _get_env_var_path "LND_TEST_COORD_MACAROON_PATH"
-    )" || return "$?"
-    if [ \
-        "$lnd_test_coord_macaroon_path" != \
-        "$LND_COORD_DIR/data/chain/bitcoin/regtest/admin.macaroon" \
-    ]; then
-        echo "error: LND_TEST_COORD_MACAROON_PATH not consistent with REGTEST_NODES_DIR" >&2
-        return 1
-    fi
-    lnd_test_user_macaroon_path="$(
-        _get_env_var_path "LND_TEST_ROBOT_MACAROON_PATH"
-    )" || return "$?"
-    if [ \
-        "$lnd_test_user_macaroon_path" != \
-        "$LND_USER_DIR/data/chain/bitcoin/regtest/admin.macaroon" \
-    ]; then
-        echo "error: LND_TEST_ROBOT_MACAROON_PATH not consistent with REGTEST_NODES_DIR" >&2
-        return 1
+    if [ "$lnd_set" = true ]; then
+        LND_COORD_DIR="$REGTEST_NODES_DIR/lnd-coord"
+        LND_USER_DIR="$REGTEST_NODES_DIR/lnd-user"
+
+        lnd_coord_dir_env="$(_get_env_var_path "LND_DIR")" || return "$?"
+        if [ "$lnd_coord_dir_env" != "$LND_COORD_DIR" ]; then
+            echo "error: LND_DIR not consistent with REGTEST_NODES_DIR" >&2
+            return 1
+        fi
+
+        lnd_test_coord_macaroon_path="$(
+            _get_env_var_path "LND_TEST_COORD_MACAROON_PATH"
+        )" || return "$?"
+        if [ \
+            "$lnd_test_coord_macaroon_path" != \
+            "$LND_COORD_DIR/data/chain/bitcoin/regtest/admin.macaroon" \
+        ]; then
+            echo "error: LND_TEST_COORD_MACAROON_PATH not consistent with REGTEST_NODES_DIR" >&2
+            return 1
+        fi
+        lnd_test_user_macaroon_path="$(
+            _get_env_var_path "LND_TEST_ROBOT_MACAROON_PATH"
+        )" || return "$?"
+        if [ \
+            "$lnd_test_user_macaroon_path" != \
+            "$LND_USER_DIR/data/chain/bitcoin/regtest/admin.macaroon" \
+        ]; then
+            echo "error: LND_TEST_ROBOT_MACAROON_PATH not consistent with REGTEST_NODES_DIR" >&2
+            return 1
+        fi
     fi
 
     # defaults
@@ -242,19 +262,23 @@ _nodes_environment_set() {
     BITCOIN_REGTEST_ZMQ_BLOCK_PORT="${BITCOIN_REGTEST_ZMQ_BLOCK_PORT:-28432}"
     BITCOIN_REGTEST_ZMQ_TX_PORT="${BITCOIN_REGTEST_ZMQ_TX_PORT:-28433}"
 
-    CLN_COORD_LISTEN_PORT="${CLN_COORD_LISTEN_PORT:-9835}"
-    CLN_COORD_GRPC_PORT="${CLN_COORD_GRPC_PORT:-9999}"
-    CLN_COORD_HOLD_PORT="${CLN_COORD_HOLD_PORT:-9998}"
+    if [ "$cln_set" = true ]; then
+        CLN_COORD_LISTEN_PORT="${CLN_COORD_LISTEN_PORT:-9835}"
+        CLN_COORD_GRPC_PORT="${CLN_COORD_GRPC_PORT:-9999}"
+        CLN_COORD_HOLD_PORT="${CLN_COORD_HOLD_PORT:-9998}"
 
-    CLN_USER_LISTEN_PORT="${CLN_USER_LISTEN_PORT:-9935}"
+        CLN_USER_LISTEN_PORT="${CLN_USER_LISTEN_PORT:-9935}"
+    fi
 
-    LND_COORD_LISTEN_PORT="${LND_COORD_LISTEN_PORT:-9885}"
-    LND_COORD_RPC_PORT="${LND_COORD_RPC_PORT:-10009}"
-    LND_COORD_REST_PORT="${LND_COORD_REST_PORT:-8081}"
+    if [ "$lnd_set" = true ]; then
+        LND_COORD_LISTEN_PORT="${LND_COORD_LISTEN_PORT:-9885}"
+        LND_COORD_RPC_PORT="${LND_COORD_RPC_PORT:-10009}"
+        LND_COORD_REST_PORT="${LND_COORD_REST_PORT:-8081}"
 
-    LND_USER_LISTEN_PORT="${LND_USER_LISTEN_PORT:-9895}"
-    LND_USER_RPC_PORT="${LND_USER_RPC_PORT:-10010}"
-    LND_USER_REST_PORT="${LND_USER_REST_PORT:-8080}"
+        LND_USER_LISTEN_PORT="${LND_USER_LISTEN_PORT:-9895}"
+        LND_USER_RPC_PORT="${LND_USER_RPC_PORT:-10010}"
+        LND_USER_REST_PORT="${LND_USER_REST_PORT:-8080}"
+    fi
 }
 
 _pgrep_bitcoin_regtest() {
